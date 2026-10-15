@@ -1,0 +1,46 @@
+# Build outputs
+build/
+build-*/
+bin/
+lib/
+*.o
+*.obj
+*.so
+*.dylib
+*.a
+*.exe
+*.out
+*.app
+
+# CMake artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+_deps/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test / Benchmark / Fuzzing outputs
+core
+vgcore.*
+*.profraw
+*.profdata
+fuzz-*.log
+crash-*
+leak-*
+timeout-*
+
+# Local environment & scratch
+.env
+.env.local
+scratch/

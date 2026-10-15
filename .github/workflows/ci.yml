@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, "phase-*" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang clang-format clang-tidy valgrind
+
+      - name: Verify code formatting
+        run: |
+          find src tests -name '*.cpp' -o -name '*.h' | xargs clang-format --dry-run --Werror
+
+      - name: Configure CMake (Release)
+        run: |
+          cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Release)
+        run: |
+          cmake --build build-release
+
+      - name: Run Tests (Release)
+        run: |
+          ctest --test-dir build-release --output-on-failure
+
+      - name: Configure CMake with Sanitizers (ASan + UBSan)
+        run: |
+          cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITY=ON
+
+      - name: Build (Sanitizers)
+        run: |
+          cmake --build build-san
+
+      - name: Run Tests with Sanitizers
+        run: |
+          ctest --test-dir build-san --output-on-failure
+
+      - name: Run Valgrind Memory Leak Check
+        run: |
+          valgrind --leak-check=full --error-exitcode=1 ./build-release/unit_tests
