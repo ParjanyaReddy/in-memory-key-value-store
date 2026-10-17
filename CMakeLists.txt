@@ -31,8 +31,18 @@ endif()
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+# Core library target
+add_library(redis_clone_core STATIC
+    src/util/socket_util.cpp
+    src/server/poller.cpp
+    src/server/client.cpp
+    src/server/event_loop.cpp
+)
+target_include_directories(redis_clone_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 # Server executable target
 add_executable(redis_clone_server src/main.cpp)
+target_link_libraries(redis_clone_server PRIVATE redis_clone_core)
 
 # Enable testing with GoogleTest
 enable_testing()
@@ -51,6 +61,10 @@ FetchContent_MakeAvailable(googletest)
 # Unit test suite target
 add_executable(unit_tests
     tests/unit/test_smoke.cpp
+    tests/unit/test_poller.cpp
+    tests/unit/test_client.cpp
+    tests/unit/test_event_loop.cpp
 )
-target_link_libraries(unit_tests PRIVATE GTest::gtest_main)
+target_link_libraries(unit_tests PRIVATE redis_clone_core GTest::gtest_main)
 add_test(NAME unit_tests COMMAND unit_tests)
+
