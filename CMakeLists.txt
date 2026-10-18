@@ -37,6 +37,7 @@ add_library(redis_clone_core STATIC
     src/server/poller.cpp
     src/server/client.cpp
     src/server/event_loop.cpp
+    src/store/hash_table.cpp
 )
 target_include_directories(redis_clone_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -64,6 +65,7 @@ add_executable(unit_tests
     tests/unit/test_poller.cpp
     tests/unit/test_client.cpp
     tests/unit/test_event_loop.cpp
+    tests/unit/test_hash_table.cpp
 )
 target_link_libraries(unit_tests PRIVATE redis_clone_core GTest::gtest_main)
 add_test(NAME unit_tests COMMAND unit_tests)
