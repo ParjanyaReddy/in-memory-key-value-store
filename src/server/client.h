@@ -59,6 +59,7 @@ public:
      * Direct access to incoming read buffer and consumption.
      */
     const std::vector<uint8_t>& read_buffer() const { return read_buffer_; }
+    std::vector<uint8_t>& mutable_read_buffer() { return read_buffer_; }
     void consume_read_bytes(size_t count);
 
     /**

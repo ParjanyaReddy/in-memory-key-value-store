@@ -3,7 +3,10 @@
 #include <iostream>
 #include <memory>
 
+#include "protocol/command.h"
+#include "protocol/frame_parser.h"
 #include "server/event_loop.h"
+#include "store/hash_table.h"
 
 namespace {
 redis_clone::server::EventLoop* g_loop = nullptr;
@@ -26,7 +29,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::cout << "Starting redis_clone echo server on port " << port << "..." << std::endl;
+    std::cout << "Starting redis_clone server on port " << port << "..." << std::endl;
 
     redis_clone::server::EventLoop loop;
     if (!loop.init("0.0.0.0", port)) {
@@ -34,11 +37,31 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Configure Phase 1 echo handler
-    loop.set_message_handler([](redis_clone::server::Client& client) {
-        const auto& buf = client.read_buffer();
-        client.append_response(buf.data(), buf.size());
-        client.consume_read_bytes(buf.size());
+    redis_clone::store::HashTable store;
+
+    // Configure protocol frame parser and command dispatcher
+    loop.set_message_handler([&store](redis_clone::server::Client& client) {
+        std::vector<std::string> frames;
+        std::string error_msg;
+        auto status = redis_clone::protocol::FrameParser::parse_all_frames(
+            client.mutable_read_buffer(), frames, error_msg);
+
+        if (status == redis_clone::protocol::ParseStatus::kErrorTooLarge) {
+            std::string err_resp =
+                redis_clone::protocol::CommandDispatcher::format_error("ERR frame too large");
+            auto out_frame = redis_clone::protocol::FrameParser::serialize_frame(err_resp);
+            client.append_response(out_frame.data(), out_frame.size());
+            client.write_to_socket();
+            client.close_socket();
+            return;
+        }
+
+        for (const auto& raw_frame : frames) {
+            auto cmd = redis_clone::protocol::CommandDispatcher::parse(raw_frame);
+            std::string response = redis_clone::protocol::CommandDispatcher::execute(cmd, store);
+            auto out_frame = redis_clone::protocol::FrameParser::serialize_frame(response);
+            client.append_response(out_frame.data(), out_frame.size());
+        }
     });
 
     g_loop = &loop;
