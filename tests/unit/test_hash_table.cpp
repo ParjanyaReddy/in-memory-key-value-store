@@ -48,12 +48,12 @@ TEST(HashTableTest, AutoResizeTriggersAtLoadFactorThreshold) {
     }
     EXPECT_EQ(table.capacity(), 16u);
 
-    // Insert 13th item -> triggers resize to 32
+    // Insert 13th item -> triggers incremental rehash to 32
     table.set("key_12", "val_12");
     EXPECT_EQ(table.capacity(), 32u);
     EXPECT_EQ(table.size(), 13u);
 
-    // Verify all 13 items exist after resize
+    // Verify all 13 items exist during and after rehash
     for (int i = 0; i < 13; ++i) {
         std::string val;
         ASSERT_TRUE(table.get("key_" + std::to_string(i), val));
@@ -75,8 +75,156 @@ TEST(HashTableTest, ClearDeallocatesAllNodes) {
     EXPECT_FALSE(table.get("k0", val));
 }
 
+TEST(HashTableTest, IncrementalRehashStepByStepProgress) {
+    HashTable table(16);
+    table.set_auto_resize(false);  // Manual rehash trigger
+
+    for (int i = 0; i < 16; ++i) {
+        table.set("key_" + std::to_string(i), "val_" + std::to_string(i));
+    }
+    EXPECT_FALSE(table.is_rehashing());
+    EXPECT_EQ(table.capacity(), 16u);
+
+    // Initiate incremental rehash to 32
+    ASSERT_TRUE(table.start_incremental_rehash(32));
+    EXPECT_TRUE(table.is_rehashing());
+    EXPECT_EQ(table.table_old_capacity(), 16u);
+    EXPECT_EQ(table.table_new_capacity(), 32u);
+    EXPECT_EQ(table.rehash_index(), 0u);
+
+    // Step through migration 1 bucket at a time
+    size_t prev_index = 0;
+    while (table.is_rehashing()) {
+        size_t cur_index = table.rehash_index();
+        EXPECT_GE(cur_index, prev_index);
+        prev_index = cur_index;
+
+        // Verify all 16 items remain accessible at every step
+        for (int i = 0; i < 16; ++i) {
+            std::string val;
+            ASSERT_TRUE(table.get("key_" + std::to_string(i), val));
+            EXPECT_EQ(val, "val_" + std::to_string(i));
+        }
+
+        table.rehash_step(1, 10);
+    }
+
+    EXPECT_FALSE(table.is_rehashing());
+    EXPECT_EQ(table.capacity(), 32u);
+    EXPECT_EQ(table.size(), 16u);
+}
+
+TEST(HashTableTest, IncrementalRehashEmptyBucketVisitBounding) {
+    HashTable table(64);
+    table.set_auto_resize(false);
+
+    // Insert only 2 keys into a 64-capacity table to create sparse buckets
+    table.set("sparse_k1", "v1");
+    table.set("sparse_k2", "v2");
+
+    ASSERT_TRUE(table.start_incremental_rehash(128));
+    EXPECT_TRUE(table.is_rehashing());
+
+    // With max_empty = 4, a single step should inspect at most 4 empty buckets
+    size_t start_idx = table.rehash_index();
+    table.rehash_step(1, 4);
+    size_t end_idx = table.rehash_index();
+
+    // Verify progress was strictly bounded by empty bucket limit + 1
+    EXPECT_LE(end_idx - start_idx, 5u);
+    EXPECT_TRUE(table.is_rehashing());
+
+    // Step until complete
+    while (table.is_rehashing()) {
+        table.rehash_step(8, 80);
+    }
+    EXPECT_FALSE(table.is_rehashing());
+    EXPECT_EQ(table.capacity(), 128u);
+    EXPECT_EQ(table.size(), 2u);
+}
+
+TEST(HashTableTest, MidMigrationMutations) {
+    HashTable table(16);
+    table.set_auto_resize(false);
+
+    for (int i = 0; i < 16; ++i) {
+        table.set("k_" + std::to_string(i), "v_" + std::to_string(i));
+    }
+
+    ASSERT_TRUE(table.start_incremental_rehash(32));
+    EXPECT_TRUE(table.is_rehashing());
+
+    // Step 2 buckets
+    table.rehash_step(2, 10);
+
+    // 1. Update existing key: should move to table_new_
+    EXPECT_FALSE(table.set("k_15", "updated_v_15"));
+    std::string val;
+    EXPECT_TRUE(table.get("k_15", val));
+    EXPECT_EQ(val, "updated_v_15");
+
+    // 2. Insert brand new key: goes into table_new_
+    EXPECT_TRUE(table.set("brand_new_key", "brand_new_val"));
+    EXPECT_TRUE(table.get("brand_new_key", val));
+    EXPECT_EQ(val, "brand_new_val");
+
+    // 3. Delete key from table
+    EXPECT_TRUE(table.del("k_14"));
+    EXPECT_FALSE(table.get("k_14", val));
+
+    // Finish rehash
+    while (table.is_rehashing()) {
+        table.rehash_step(4, 40);
+    }
+    EXPECT_FALSE(table.is_rehashing());
+
+    // Verify final state
+    EXPECT_EQ(table.size(), 16u);  // 16 original - 1 deleted + 1 new = 16
+    EXPECT_TRUE(table.get("brand_new_key", val));
+    EXPECT_EQ(val, "brand_new_val");
+    EXPECT_TRUE(table.get("k_15", val));
+    EXPECT_EQ(val, "updated_v_15");
+    EXPECT_FALSE(table.get("k_14", val));
+}
+
+TEST(HashTableTest, IncrementalVsStopTheWorldEquivalence) {
+    HashTable table_inc(16);
+    table_inc.set_incremental_rehash(true);
+
+    HashTable table_stw(16);
+    table_stw.set_incremental_rehash(false);
+
+    constexpr int kCount = 500;
+    for (int i = 0; i < kCount; ++i) {
+        std::string k = "key_" + std::to_string(i);
+        std::string v = "val_" + std::to_string(i);
+        table_inc.set(k, v);
+        table_stw.set(k, v);
+    }
+
+    // Advance any remaining incremental rehash steps
+    while (table_inc.is_rehashing()) {
+        table_inc.rehash_step(8, 80);
+    }
+
+    EXPECT_EQ(table_inc.size(), table_stw.size());
+    EXPECT_EQ(table_inc.capacity(), table_stw.capacity());
+
+    for (int i = 0; i < kCount; ++i) {
+        std::string k = "key_" + std::to_string(i);
+        std::string v_inc;
+        std::string v_stw;
+        ASSERT_TRUE(table_inc.get(k, v_inc));
+        ASSERT_TRUE(table_stw.get(k, v_stw));
+        ASSERT_EQ(v_inc, v_stw);
+    }
+}
+
 TEST(HashTableTest, RandomizedOracleDifferentialTest) {
     HashTable table(16);
+    table.set_migration_batch_size(1);  // Migrate 1 bucket per op to maximize rehash interleaving
+    table.set_max_empty_buckets_to_visit(5);
+
     std::unordered_map<std::string, std::string> oracle;
 
     std::mt19937_64 rng(42);                           // Fixed seed for deterministic testing
