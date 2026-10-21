@@ -64,6 +64,13 @@ int main(int argc, char* argv[]) {
         }
     });
 
+    // Background iteration tick: steps incremental rehashing
+    loop.set_tick_callback([&store]() {
+        if (store.is_rehashing()) {
+            store.rehash_step(8, 80);
+        }
+    });
+
     g_loop = &loop;
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);

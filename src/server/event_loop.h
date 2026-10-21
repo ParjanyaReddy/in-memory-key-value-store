@@ -21,6 +21,7 @@ class EventLoop {
 public:
     using MessageHandler = std::function<void(Client& client)>;
     using ConnectionHandler = std::function<void(int fd)>;
+    using TickCallback = std::function<void()>;
 
     explicit EventLoop(std::unique_ptr<IPoller> poller = nullptr);
     ~EventLoop();
@@ -62,6 +63,7 @@ public:
     void set_disconnect_handler(ConnectionHandler handler) {
         disconnect_handler_ = std::move(handler);
     }
+    void set_tick_callback(TickCallback handler) { tick_callback_ = std::move(handler); }
 
     /**
      * Access client registry.
@@ -88,6 +90,7 @@ private:
 
     MessageHandler message_handler_;
     ConnectionHandler disconnect_handler_;
+    TickCallback tick_callback_;
 };
 
 }  // namespace server

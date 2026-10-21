@@ -145,23 +145,26 @@ void EventLoop::disconnect_client(int fd) {
 
 void EventLoop::step(int timeout_ms) {
     int nfds = poller_->poll(active_events_, timeout_ms);
-    if (nfds <= 0)
-        return;
-
-    for (const auto& event : active_events_) {
-        if (event.fd == listen_fd_) {
-            handle_accept();
-        } else {
-            if (event.events & (EVENT_READ | EVENT_ERROR)) {
-                handle_client_read(event.fd);
-            }
-            if (event.events & EVENT_WRITE) {
-                // Confirm client still exists in case read caused disconnect
-                if (clients_.find(event.fd) != clients_.end()) {
-                    handle_client_write(event.fd);
+    if (nfds > 0) {
+        for (const auto& event : active_events_) {
+            if (event.fd == listen_fd_) {
+                handle_accept();
+            } else {
+                if (event.events & (EVENT_READ | EVENT_ERROR)) {
+                    handle_client_read(event.fd);
+                }
+                if (event.events & EVENT_WRITE) {
+                    // Confirm client still exists in case read caused disconnect
+                    if (clients_.find(event.fd) != clients_.end()) {
+                        handle_client_write(event.fd);
+                    }
                 }
             }
         }
+    }
+
+    if (tick_callback_) {
+        tick_callback_();
     }
 }
 
