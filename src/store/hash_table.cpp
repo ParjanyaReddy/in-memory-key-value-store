@@ -438,5 +438,36 @@ void HashTable::resize_stop_the_world(size_t new_capacity) {
     rehash_index_ = 0;
 }
 
+HashNode* HashTable::lookup_node(const std::string& key) {
+    uint64_t hash = util::fnv1a_hash(key);
+
+    if (is_rehashing_) {
+        size_t new_index = hash & (table_new_.capacity - 1);
+        HashNode* cur = table_new_.buckets[new_index];
+        while (cur != nullptr) {
+            if (cur->hash_code == hash && cur->key == key) {
+                return cur;
+            }
+            cur = cur->next;
+        }
+    }
+
+    if (table_old_.capacity > 0) {
+        size_t old_index = hash & (table_old_.capacity - 1);
+        HashNode* cur = table_old_.buckets[old_index];
+        while (cur != nullptr) {
+            if (cur->hash_code == hash && cur->key == key) {
+                return cur;
+            }
+            cur = cur->next;
+        }
+    }
+    return nullptr;
+}
+
+const HashNode* HashTable::lookup_node(const std::string& key) const {
+    return const_cast<HashTable*>(this)->lookup_node(key);
+}
+
 }  // namespace store
 }  // namespace redis_clone

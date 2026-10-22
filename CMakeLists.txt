@@ -38,6 +38,8 @@ add_library(redis_clone_core STATIC
     src/server/client.cpp
     src/server/event_loop.cpp
     src/store/hash_table.cpp
+    src/store/ttl_heap.cpp
+    src/store/database.cpp
     src/protocol/frame_parser.cpp
     src/protocol/command.cpp
 )
@@ -69,6 +71,7 @@ add_executable(unit_tests
     tests/unit/test_event_loop.cpp
     tests/unit/test_hash_table.cpp
     tests/unit/test_frame_parser.cpp
+    tests/unit/test_ttl_heap.cpp
 )
 target_link_libraries(unit_tests PRIVATE redis_clone_core GTest::gtest_main)
 add_test(NAME unit_tests COMMAND unit_tests)

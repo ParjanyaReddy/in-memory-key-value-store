@@ -18,10 +18,17 @@ struct HashNode {
     std::string key;
     std::string value;
     uint64_t hash_code{0};
+    uint64_t expire_at_ms{0};
+    uint64_t expiry_version{0};
     HashNode* next{nullptr};
 
     HashNode(std::string k, std::string v, uint64_t h, HashNode* n = nullptr)
-        : key(std::move(k)), value(std::move(v)), hash_code(h), next(n) {}
+        : key(std::move(k)),
+          value(std::move(v)),
+          hash_code(h),
+          expire_at_ms(0),
+          expiry_version(0),
+          next(n) {}
 };
 
 /**
@@ -116,6 +123,12 @@ public:
      * Kept as a selectable baseline to benchmark against incremental rehashing.
      */
     void resize_stop_the_world(size_t new_capacity);
+
+    /**
+     * Direct node lookup for database and TTL subsystems.
+     */
+    HashNode* lookup_node(const std::string& key);
+    const HashNode* lookup_node(const std::string& key) const;
 
     // Inspector methods
     size_t size() const;
