@@ -4,12 +4,13 @@
 #include <string>
 #include <vector>
 
+#include "store/database.h"
 #include "store/hash_table.h"
 
 namespace redis_clone {
 namespace protocol {
 
-enum class CommandType { kPing, kGet, kSet, kDel, kUnknown };
+enum class CommandType { kPing, kGet, kSet, kDel, kExpire, kPexpire, kTtl, kPttl, kUnknown };
 
 struct Command {
     CommandType type{CommandType::kUnknown};
@@ -28,7 +29,12 @@ public:
     static Command parse(const std::string& raw_payload);
 
     /**
-     * Execute a command against a HashTable store and return formatted response string.
+     * Execute a command against a Database store (supporting TTL & rehashing).
+     */
+    static std::string execute(const Command& cmd, store::Database& db);
+
+    /**
+     * Overload to execute against a raw HashTable store (backward compatibility).
      */
     static std::string execute(const Command& cmd, store::HashTable& store);
 

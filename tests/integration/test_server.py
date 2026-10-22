@@ -96,7 +96,30 @@ def test_server():
         assert recv_frame(s) == "$2\r\n42\r\n"
         s.close()
 
-        # 6. Malicious oversized header rejection (> 1MB)
+        # 6. TTL expiry integration: SET with EX 1
+        s_ttl = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s_ttl.connect(("127.0.0.1", port))
+        send_frame(s_ttl, "SET session_token abc EX 1")
+        assert recv_frame(s_ttl) == "+OK\r\n"
+
+        send_frame(s_ttl, "TTL session_token")
+        ttl_resp = recv_frame(s_ttl)
+        assert ttl_resp in [":1\r\n", ":0\r\n"]
+
+        send_frame(s_ttl, "GET session_token")
+        assert recv_frame(s_ttl) == "$3\r\nabc\r\n"
+
+        # Wait for expiration
+        time.sleep(1.2)
+
+        send_frame(s_ttl, "GET session_token")
+        assert recv_frame(s_ttl) == "$-1\r\n"
+
+        send_frame(s_ttl, "TTL session_token")
+        assert recv_frame(s_ttl) == ":-2\r\n"
+        s_ttl.close()
+
+        # 7. Malicious oversized header rejection (> 1MB)
         s_bad = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s_bad.connect(("127.0.0.1", port))
         oversized_header = struct.pack("<I", 2 * 1024 * 1024)  # 2 MB
@@ -109,7 +132,7 @@ def test_server():
         assert len(data) == 0  # Clean EOF
         s_bad.close()
 
-        print("Phase 3 protocol integration tests passed successfully!")
+        print("Protocol and TTL integration tests passed successfully!")
 
     finally:
         server_proc.terminate()

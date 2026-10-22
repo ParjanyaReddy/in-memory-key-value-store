@@ -6,7 +6,7 @@
 #include "protocol/command.h"
 #include "protocol/frame_parser.h"
 #include "server/event_loop.h"
-#include "store/hash_table.h"
+#include "store/database.h"
 
 namespace {
 redis_clone::server::EventLoop* g_loop = nullptr;
@@ -37,10 +37,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    redis_clone::store::HashTable store;
+    redis_clone::store::Database db;
 
     // Configure protocol frame parser and command dispatcher
-    loop.set_message_handler([&store](redis_clone::server::Client& client) {
+    loop.set_message_handler([&db](redis_clone::server::Client& client) {
         std::vector<std::string> frames;
         std::string error_msg;
         auto status = redis_clone::protocol::FrameParser::parse_all_frames(
@@ -58,18 +58,14 @@ int main(int argc, char* argv[]) {
 
         for (const auto& raw_frame : frames) {
             auto cmd = redis_clone::protocol::CommandDispatcher::parse(raw_frame);
-            std::string response = redis_clone::protocol::CommandDispatcher::execute(cmd, store);
+            std::string response = redis_clone::protocol::CommandDispatcher::execute(cmd, db);
             auto out_frame = redis_clone::protocol::FrameParser::serialize_frame(response);
             client.append_response(out_frame.data(), out_frame.size());
         }
     });
 
-    // Background iteration tick: steps incremental rehashing
-    loop.set_tick_callback([&store]() {
-        if (store.is_rehashing()) {
-            store.rehash_step(8, 80);
-        }
-    });
+    // Background iteration tick: steps incremental rehashing and active TTL expiry
+    loop.set_tick_callback([&db]() { db.step(); });
 
     g_loop = &loop;
     std::signal(SIGINT, handle_signal);
