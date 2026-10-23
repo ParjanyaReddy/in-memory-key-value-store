@@ -76,4 +76,13 @@ add_executable(unit_tests
 target_link_libraries(unit_tests PRIVATE redis_clone_core GTest::gtest_main)
 add_test(NAME unit_tests COMMAND unit_tests)
 
+# LibFuzzer target
+option(ENABLE_FUZZING "Build libFuzzer targets" OFF)
+if(ENABLE_FUZZING)
+    add_executable(fuzz_frame_parser tests/fuzz/fuzz_frame_parser.cpp)
+    target_compile_options(fuzz_frame_parser PRIVATE -fsanitize=fuzzer,address,undefined)
+    target_link_options(fuzz_frame_parser PRIVATE -fsanitize=fuzzer,address,undefined)
+    target_link_libraries(fuzz_frame_parser PRIVATE redis_clone_core)
+endif()
+
 

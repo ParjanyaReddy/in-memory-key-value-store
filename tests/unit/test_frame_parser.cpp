@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <random>
+
 #include "protocol/command.h"
 #include "protocol/frame_parser.h"
 #include "store/hash_table.h"
@@ -151,4 +153,30 @@ TEST(CommandDispatcherTest, ExecutesBasicCommands) {
     // Unknown command
     Command unknown_cmd = CommandDispatcher::parse("FOOBAR");
     EXPECT_EQ(CommandDispatcher::execute(unknown_cmd, table), "-ERR unknown command 'FOOBAR'\r\n");
+}
+
+TEST(FrameParserTest, FuzzRandomBytesContinuous) {
+    std::mt19937_64 rng(1337);
+    std::uniform_int_distribution<size_t> len_dist(0, 1024);
+    std::uniform_int_distribution<int> byte_dist(0, 255);
+
+    constexpr int kFuzzIterations = 10000;
+    std::vector<uint8_t> fuzz_buf;
+
+    for (int iter = 0; iter < kFuzzIterations; ++iter) {
+        size_t len = len_dist(rng);
+        fuzz_buf.resize(len);
+        for (size_t i = 0; i < len; ++i) {
+            fuzz_buf[i] = static_cast<uint8_t>(byte_dist(rng));
+        }
+
+        std::vector<std::string> frames;
+        std::string err;
+        FrameParser::parse_all_frames(fuzz_buf, frames, err);
+
+        for (const auto& f : frames) {
+            auto cmd = CommandDispatcher::parse(f);
+            (void)cmd;
+        }
+    }
 }
