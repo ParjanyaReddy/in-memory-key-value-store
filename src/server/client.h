@@ -69,6 +69,12 @@ public:
     size_t pending_write_bytes() const { return write_buffer_.size() - write_offset_; }
 
     /**
+     * Activity tracking for idle timeout reaping.
+     */
+    uint64_t last_active_time_ms() const { return last_active_time_ms_; }
+    void update_activity(uint64_t now_ms) { last_active_time_ms_ = now_ms; }
+
+    /**
      * Close the underlying socket descriptor cleanly.
      */
     void close_socket();
@@ -78,6 +84,7 @@ private:
     std::vector<uint8_t> read_buffer_;
     std::vector<uint8_t> write_buffer_;
     size_t write_offset_{0};
+    uint64_t last_active_time_ms_{0};
 };
 
 }  // namespace server

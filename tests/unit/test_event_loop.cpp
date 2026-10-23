@@ -88,3 +88,27 @@ TEST_F(EventLoopTest, AcceptMultipleClientsAndEchoData) {
     event_loop_->step(50);
     EXPECT_EQ(event_loop_->active_clients_count(), 0u);
 }
+
+TEST_F(EventLoopTest, DisconnectsIdleClientsAfterTimeout) {
+    // Configure 50ms idle timeout
+    event_loop_->set_idle_timeout_ms(50);
+    EXPECT_EQ(event_loop_->idle_timeout_ms(), 50u);
+
+    int client1 = connect_test_client();
+    int client2 = connect_test_client();
+    ASSERT_GE(client1, 0);
+    ASSERT_GE(client2, 0);
+
+    event_loop_->step(20);
+    EXPECT_EQ(event_loop_->active_clients_count(), 2u);
+
+    // Sleep 60ms so clients become idle past the 50ms threshold
+    usleep(60000);
+
+    // Stepping loop should trigger idle reaper and disconnect both clients
+    event_loop_->step(20);
+    EXPECT_EQ(event_loop_->active_clients_count(), 0u);
+
+    close(client1);
+    close(client2);
+}

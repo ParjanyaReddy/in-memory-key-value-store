@@ -8,6 +8,7 @@
 #include <cerrno>
 
 #include "util/socket_util.h"
+#include "util/time_util.h"
 
 namespace redis_clone {
 namespace server {
@@ -143,6 +144,24 @@ void EventLoop::disconnect_client(int fd) {
     clients_.erase(it);  // Unique_ptr cleans up Client and closes socket
 }
 
+size_t EventLoop::reap_idle_clients() {
+    if (idle_timeout_ms_ == 0 || clients_.empty()) {
+        return 0;
+    }
+    uint64_t now = util::current_time_ms();
+    std::vector<int> idle_fds;
+    for (const auto& [fd, client] : clients_) {
+        if (now >= client->last_active_time_ms() &&
+            (now - client->last_active_time_ms()) >= idle_timeout_ms_) {
+            idle_fds.push_back(fd);
+        }
+    }
+    for (int fd : idle_fds) {
+        disconnect_client(fd);
+    }
+    return idle_fds.size();
+}
+
 void EventLoop::step(int timeout_ms) {
     int nfds = poller_->poll(active_events_, timeout_ms);
     if (nfds > 0) {
@@ -161,6 +180,10 @@ void EventLoop::step(int timeout_ms) {
                 }
             }
         }
+    }
+
+    if (idle_timeout_ms_ > 0) {
+        reap_idle_clients();
     }
 
     if (tick_callback_) {

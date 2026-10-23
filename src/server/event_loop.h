@@ -66,6 +66,14 @@ public:
     void set_tick_callback(TickCallback handler) { tick_callback_ = std::move(handler); }
 
     /**
+     * Idle connection timeout reaper configuration.
+     * 0 = disabled (default).
+     */
+    void set_idle_timeout_ms(uint64_t timeout_ms) { idle_timeout_ms_ = timeout_ms; }
+    uint64_t idle_timeout_ms() const { return idle_timeout_ms_; }
+    size_t reap_idle_clients();
+
+    /**
      * Access client registry.
      */
     size_t active_clients_count() const { return clients_.size(); }
@@ -91,6 +99,7 @@ private:
     MessageHandler message_handler_;
     ConnectionHandler disconnect_handler_;
     TickCallback tick_callback_;
+    uint64_t idle_timeout_ms_{0};
 };
 
 }  // namespace server

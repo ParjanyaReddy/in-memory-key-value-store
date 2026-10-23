@@ -6,10 +6,12 @@
 #include <cstring>
 #include <utility>
 
+#include "util/time_util.h"
+
 namespace redis_clone {
 namespace server {
 
-Client::Client(int fd) : fd_(fd) {}
+Client::Client(int fd) : fd_(fd), last_active_time_ms_(util::current_time_ms()) {}
 
 Client::~Client() {
     close_socket();
@@ -19,9 +21,11 @@ Client::Client(Client&& other) noexcept
     : fd_(other.fd_),
       read_buffer_(std::move(other.read_buffer_)),
       write_buffer_(std::move(other.write_buffer_)),
-      write_offset_(other.write_offset_) {
+      write_offset_(other.write_offset_),
+      last_active_time_ms_(other.last_active_time_ms_) {
     other.fd_ = -1;
     other.write_offset_ = 0;
+    other.last_active_time_ms_ = 0;
 }
 
 Client& Client::operator=(Client&& other) noexcept {
@@ -31,9 +35,11 @@ Client& Client::operator=(Client&& other) noexcept {
         read_buffer_ = std::move(other.read_buffer_);
         write_buffer_ = std::move(other.write_buffer_);
         write_offset_ = other.write_offset_;
+        last_active_time_ms_ = other.last_active_time_ms_;
 
         other.fd_ = -1;
         other.write_offset_ = 0;
+        other.last_active_time_ms_ = 0;
     }
     return *this;
 }
@@ -56,6 +62,7 @@ ReadStatus Client::read_from_socket() {
         ssize_t bytes_read = read(fd_, buffer, kChunkSize);
         if (bytes_read > 0) {
             read_buffer_.insert(read_buffer_.end(), buffer, buffer + bytes_read);
+            last_active_time_ms_ = util::current_time_ms();
             continue;
         }
 
@@ -86,6 +93,7 @@ WriteStatus Client::write_to_socket() {
         ssize_t bytes_written = write(fd_, ptr, remaining);
         if (bytes_written > 0) {
             write_offset_ += static_cast<size_t>(bytes_written);
+            last_active_time_ms_ = util::current_time_ms();
             continue;
         }
 
