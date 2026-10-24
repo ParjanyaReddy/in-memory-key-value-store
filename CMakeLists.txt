@@ -85,4 +85,9 @@ if(ENABLE_FUZZING)
     target_link_libraries(fuzz_frame_parser PRIVATE redis_clone_core)
 endif()
 
+# Benchmark targets
+add_executable(bench_rehash_latency bench/bench_rehash_latency.cpp)
+target_link_libraries(bench_rehash_latency PRIVATE redis_clone_core)
+
+
 
