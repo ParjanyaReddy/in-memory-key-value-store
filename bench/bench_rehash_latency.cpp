@@ -39,8 +39,12 @@ static size_t get_current_rss_kb() {
     return 0;
 }
 #else
-static size_t get_peak_rss_kb() { return 0; }
-static size_t get_current_rss_kb() { return 0; }
+static size_t get_peak_rss_kb() {
+    return 0;
+}
+static size_t get_current_rss_kb() {
+    return 0;
+}
 #endif
 
 struct LatencyStats {
@@ -54,7 +58,8 @@ struct LatencyStats {
 };
 
 static LatencyStats compute_stats(std::vector<double>& latencies) {
-    if (latencies.empty()) return {};
+    if (latencies.empty())
+        return {};
     std::vector<double> sorted = latencies;
     std::sort(sorted.begin(), sorted.end());
 
@@ -151,7 +156,8 @@ int main(int argc, char** argv) {
     // ------------------------------------------------------------------------
     // BENCHMARK 3: std::unordered_map Memory Comparison
     // ------------------------------------------------------------------------
-    std::cout << "[4/4] Benchmarking std::unordered_map memory baseline (" << total_keys << " insertions)...\n";
+    std::cout << "[4/4] Benchmarking std::unordered_map memory baseline (" << total_keys
+              << " insertions)...\n";
     size_t map_peak_rss_kb = 0;
     {
         std::unordered_map<std::string, std::string> map;
@@ -172,46 +178,51 @@ int main(int argc, char** argv) {
     std::cout << "                      BENCHMARK RESULTS & METRICS                       \n";
     std::cout << "========================================================================\n\n";
 
-    std::cout << "| Metric                      | Stop-the-World     | Incremental Rehash | Improvement       |\n";
-    std::cout << "|-----------------------------|--------------------|--------------------|-------------------|\n";
+    std::cout << "| Metric                      | Stop-the-World     | Incremental Rehash | "
+                 "Improvement       |\n";
+    std::cout << "|-----------------------------|--------------------|--------------------|--------"
+                 "-----------|\n";
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "| p50 Latency (median)        | " << std::setw(15) << stw_stats.p50_us << " us | "
-              << std::setw(15) << inc_stats.p50_us << " us | "
-              << std::setw(14) << (stw_stats.p50_us / (inc_stats.p50_us > 0 ? inc_stats.p50_us : 1.0)) << "x |\n";
+              << std::setw(15) << inc_stats.p50_us << " us | " << std::setw(14)
+              << (stw_stats.p50_us / (inc_stats.p50_us > 0 ? inc_stats.p50_us : 1.0)) << "x |\n";
     std::cout << "| p90 Latency                 | " << std::setw(15) << stw_stats.p90_us << " us | "
-              << std::setw(15) << inc_stats.p90_us << " us | "
-              << std::setw(14) << (stw_stats.p90_us / (inc_stats.p90_us > 0 ? inc_stats.p90_us : 1.0)) << "x |\n";
+              << std::setw(15) << inc_stats.p90_us << " us | " << std::setw(14)
+              << (stw_stats.p90_us / (inc_stats.p90_us > 0 ? inc_stats.p90_us : 1.0)) << "x |\n";
     std::cout << "| p99 Latency                 | " << std::setw(15) << stw_stats.p99_us << " us | "
-              << std::setw(15) << inc_stats.p99_us << " us | "
-              << std::setw(14) << (stw_stats.p99_us / (inc_stats.p99_us > 0 ? inc_stats.p99_us : 1.0)) << "x |\n";
-    std::cout << "| p99.9 Latency               | " << std::setw(15) << stw_stats.p999_us << " us | "
-              << std::setw(15) << inc_stats.p999_us << " us | "
-              << std::setw(14) << (stw_stats.p999_us / (inc_stats.p999_us > 0 ? inc_stats.p999_us : 1.0)) << "x |\n";
-    std::cout << "| Max Latency (Peak Spike)    | " << std::setw(12) << stw_stats.max_us / 1000.0 << " ms | "
-              << std::setw(12) << inc_stats.max_us / 1000.0 << " ms | "
-              << std::setw(14) << (stw_stats.max_us / (inc_stats.max_us > 0 ? inc_stats.max_us : 1.0)) << "x reduction |\n";
+              << std::setw(15) << inc_stats.p99_us << " us | " << std::setw(14)
+              << (stw_stats.p99_us / (inc_stats.p99_us > 0 ? inc_stats.p99_us : 1.0)) << "x |\n";
+    std::cout << "| p99.9 Latency               | " << std::setw(15) << stw_stats.p999_us
+              << " us | " << std::setw(15) << inc_stats.p999_us << " us | " << std::setw(14)
+              << (stw_stats.p999_us / (inc_stats.p999_us > 0 ? inc_stats.p999_us : 1.0)) << "x |\n";
+    std::cout << "| Max Latency (Peak Spike)    | " << std::setw(12) << stw_stats.max_us / 1000.0
+              << " ms | " << std::setw(12) << inc_stats.max_us / 1000.0 << " ms | " << std::setw(14)
+              << (stw_stats.max_us / (inc_stats.max_us > 0 ? inc_stats.max_us : 1.0))
+              << "x reduction |\n";
     std::cout << "| Average Latency             | " << std::setw(15) << stw_stats.avg_us << " us | "
-              << std::setw(15) << inc_stats.avg_us << " us | "
-              << std::setw(14) << (stw_stats.avg_us / (inc_stats.avg_us > 0 ? inc_stats.avg_us : 1.0)) << "x |\n";
-    std::cout << "| Total Ingestion Time        | " << std::setw(14) << stw_stats.total_ms << " ms | "
-              << std::setw(14) << inc_stats.total_ms << " ms | "
-              << std::setw(17) << "-" << " |\n\n";
+              << std::setw(15) << inc_stats.avg_us << " us | " << std::setw(14)
+              << (stw_stats.avg_us / (inc_stats.avg_us > 0 ? inc_stats.avg_us : 1.0)) << "x |\n";
+    std::cout << "| Total Ingestion Time        | " << std::setw(14) << stw_stats.total_ms
+              << " ms | " << std::setw(14) << inc_stats.total_ms << " ms | " << std::setw(17) << "-"
+              << " |\n\n";
 
     if (ht_peak_rss_kb > 0 && map_peak_rss_kb > 0) {
         double ht_bytes_per_key = (static_cast<double>(ht_peak_rss_kb) * 1024.0) / total_keys;
         double map_bytes_per_key = (static_cast<double>(map_peak_rss_kb) * 1024.0) / total_keys;
 
         std::cout << "========================================================================\n";
-        std::cout << "                      MEMORY FOOTPRINT AT " << total_keys << " KEYS                      \n";
+        std::cout << "                      MEMORY FOOTPRINT AT " << total_keys
+                  << " KEYS                      \n";
         std::cout << "========================================================================\n\n";
-        std::cout << "| Data Structure              | Peak RSS (MB)        | Bytes Per Key      |\n";
-        std::cout << "|-----------------------------|----------------------|--------------------|\n";
-        std::cout << "| redis_clone::HashTable      | " << std::setw(17) << ht_peak_rss_kb / 1024.0 << " MB | "
-                  << std::setw(15) << ht_bytes_per_key << " B/key |\n";
-        std::cout << "| std::unordered_map          | " << std::setw(17) << map_peak_rss_kb / 1024.0 << " MB | "
-                  << std::setw(15) << map_bytes_per_key << " B/key |\n\n";
+        std::cout
+            << "| Data Structure              | Peak RSS (MB)        | Bytes Per Key      |\n";
+        std::cout
+            << "|-----------------------------|----------------------|--------------------|\n";
+        std::cout << "| redis_clone::HashTable      | " << std::setw(17) << ht_peak_rss_kb / 1024.0
+                  << " MB | " << std::setw(15) << ht_bytes_per_key << " B/key |\n";
+        std::cout << "| std::unordered_map          | " << std::setw(17) << map_peak_rss_kb / 1024.0
+                  << " MB | " << std::setw(15) << map_bytes_per_key << " B/key |\n\n";
     }
-
 
     // ------------------------------------------------------------------------
     // EXPORT TIME-SERIES CSV FOR PLOTTING
@@ -222,7 +233,8 @@ int main(int argc, char** argv) {
 
     // Sample every step or when a latency spike occurs (> 50 us)
     size_t sample_stride = total_keys / 2000;
-    if (sample_stride == 0) sample_stride = 1;
+    if (sample_stride == 0)
+        sample_stride = 1;
 
     for (size_t i = 0; i < total_keys; ++i) {
         bool is_sample = (i % sample_stride == 0);

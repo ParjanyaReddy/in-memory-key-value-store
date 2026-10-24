@@ -7,6 +7,7 @@
 #include "protocol/frame_parser.h"
 #include "server/event_loop.h"
 #include "store/database.h"
+#include "util/logging.h"
 
 namespace {
 redis_clone::server::EventLoop* g_loop = nullptr;
@@ -14,6 +15,7 @@ redis_clone::server::EventLoop* g_loop = nullptr;
 void handle_signal(int sig) {
     (void)sig;
     if (g_loop) {
+        LOG_INFO("Shutdown signal received. Stopping event loop...");
         g_loop->stop();
     }
 }
@@ -24,16 +26,16 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         port = std::atoi(argv[1]);
         if (port <= 0 || port > 65535) {
-            std::cerr << "Invalid port specified: " << argv[1] << std::endl;
+            LOG_ERROR("Invalid port specified: ", argv[1]);
             return 1;
         }
     }
 
-    std::cout << "Starting redis_clone server on port " << port << "..." << std::endl;
+    LOG_INFO("Starting redis_clone server on port ", port, "...");
 
     redis_clone::server::EventLoop loop;
     if (!loop.init("0.0.0.0", port)) {
-        std::cerr << "Failed to bind and listen on port " << port << std::endl;
+        LOG_ERROR("Failed to bind and listen on port ", port);
         return 1;
     }
 
@@ -71,10 +73,10 @@ int main(int argc, char* argv[]) {
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);
 
-    std::cout << "Server ready. Listening for incoming connections..." << std::endl;
+    LOG_INFO("Server ready. Listening for incoming connections...");
     loop.run();
 
-    std::cout << "Server shutting down cleanly." << std::endl;
+    LOG_INFO("Server shutting down cleanly.");
     g_loop = nullptr;
     return 0;
 }
